@@ -1,0 +1,79 @@
+package Hackathon_2
+
+import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql;
+import org.apache.spark.sql.functions.count;
+import org.apache.spark._;
+
+object spark_hack2 {
+  def main(args:Array[String]){
+    val sc = SparkSession.builder()
+             .appName("Hackathon Spark core DataFrame and Datasets")
+             .master("local[*]")
+             .getOrCreate();
+  
+    sc.sparkContext.setLogLevel("ERROR");
+    //Get a sql context
+  
+val sc = sparksession.sparkContext
+
+       //Load the file1 (insuranceinfo1.csv) from HDFS using textFile API into an RDD insuredata 
+       val insurancefile1 = sc.textFile("hdfs://localhost:53310/user/hduser/sparkhack2/insuranceinfo1.csv")
+       val removehdr = insurancefile1.first()
+       val insuranceftr  = insurancefile1.filter(l => l != removehdr)
+   
+       println("Lines in insurance file1.csv is : "+insuranceftr.count())
+    insuranceftr.top(3).foreach(println)
+    println("------------------------------------------------------------------")
+    
+    println("Insuredata 2 csv..")
+    val insurancefile2 = sc.textFile("hdfs://localhost:54310/user/hduser/spark_hack2/insuranceinfo2.csv")
+    val removehdr2 = insurancefile2.first()    
+    val insuranceftr2 = insurancefile2.filter(l => l != removehdr2)
+    println("Lines in insurance file2.csv : "+insuranceftr2.count())
+    insuranceftr2.top(3).foreach(println)    
+    
+    println("------------------------------------------------------------------")
+    
+    
+    val insuredatamerged = insurancefile1.union(insurancefile2)
+    insuredatamerged.cache()
+    println("Lines in insurance file1.csv plus insurance file2.csv : "+insuredatamerged.count())
+     insuredatamerged.top(3).foreach(println)
+    println("------------------------------------------------------------------")    
+    val insmergedddist = insurancefile1.union(insurancefile2).distinct
+    println("Distinct no of lines are : "+insmergedddist.count())
+    val insuredatarepart = insmergedddist.repartition(8) 
+    println("Repartitioned count is : "+insuredatarepart.getNumPartitions)
+    println("------------------------------------------------------------------")
+    
+    
+    spark.udf.register("mask",masking _);
+    
+ import sqlCtx.implicits._;
+
+//Data masking function
+
+def masking(inputString: String): String = {
+     val input_param = Map[String,String] (
+	  "a"->"x","b=>"y","c"->"z","d"->"l","m"->"n","n->"o"
+	  );
+
+spark.udf.register("mask",masking _);
+
+val insuredatarepartschrdd = insuredatarepart.map(x=>x.split(",")).map(x=>(x(0).toInt, x(1).toInt, x(2).toInt,x(3),x(4),x(5),x(6)))
+
+    val insuredatarepartdf = insuredatarepartschrdd.toDF("id1","id2","yr","stcd","srcnm","network","url")
+    
+    insuredatarepartdf.createOrReplaceTempView("insurance")
+    val results = spark.sql("select id1,id2,trim(upper(concat(stcd,' ',network))),mask(url) from insurance").show(2,false)
+
+    val resultsout = spark.sql("select id1,id2,trim(upper(concat(stcd,' ',network))),mask(url) from insurance")
+    resultsout.write.mode("overwrite").json("hdfs://localhost:54310/user/hduser/spark_hack2/insurejson.json")
+    resultsout.write.mode("overwrite").parquet("hdfs://localhost:54310/user/hduser/spark_hack2/insurejson.parquet")
+    
+    println("End..")    
+}
+
+}        
+    
